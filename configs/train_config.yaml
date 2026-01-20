@@ -1,0 +1,106 @@
+# Cloudx Invoice AI Training Configuration
+
+# Model Configuration
+model:
+  pretrained_model: "naver-clova-ix/donut-base"  # Base Donut model
+  image_size: [1280, 960]  # Input image size [width, height]
+  max_length: 768  # Maximum sequence length
+
+# Training Configuration
+training:
+  batch_size: 4  # Adjust based on GPU memory
+  num_workers: 4  # Number of data loading workers
+  max_epochs: 30
+  learning_rate: 3e-5
+  weight_decay: 0.01
+  warmup_steps: 300
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 2  # Effective batch size = batch_size * accumulate_grad_batches
+
+  # Learning rate scheduler
+  scheduler:
+    type: "cosine"  # cosine, linear, or constant
+    num_cycles: 0.5
+
+  # Early stopping
+  early_stopping:
+    patience: 5
+    monitor: "val_loss"
+    mode: "min"
+
+# Data Configuration
+data:
+  train_metadata: "data/processed/train_metadata.jsonl"
+  val_metadata: "data/processed/val_metadata.jsonl"
+  test_metadata: "data/processed/test_metadata.jsonl"
+
+  # Data split ratios (if creating splits from raw data)
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+
+  # Data augmentation
+  augmentation:
+    enabled: true
+    rotation_degrees: 5
+    brightness_factor: 0.2
+    contrast_factor: 0.2
+
+# Checkpoint Configuration
+checkpoint:
+  save_dir: "models/checkpoints"
+  save_top_k: 3
+  monitor: "val_loss"
+  mode: "min"
+  every_n_epochs: 1
+
+# Logging Configuration
+logging:
+  log_dir: "logs"
+  log_every_n_steps: 50
+  experiment_name: "cloudx_invoice_donut"
+
+  # Weights & Biases (optional)
+  wandb:
+    enabled: false
+    project: "cloudx-invoice-ai"
+    entity: "cloudx"
+
+# Hardware Configuration
+hardware:
+  gpus: 1  # Number of GPUs to use
+  precision: 16  # 16 for mixed precision, 32 for full precision
+  strategy: null  # ddp, ddp_spawn, or null for single GPU
+
+# Task Configuration
+task:
+  task_name: "invoice"
+  task_start_token: "<s_invoice>"
+  prompt_end_token: "<s_invoice>"
+
+  # Invoice fields to extract
+  fields:
+    - invoice_number
+    - invoice_date
+    - due_date
+    - vendor_name
+    - vendor_address
+    - customer_name
+    - customer_address
+    - subtotal
+    - tax
+    - total
+    - currency
+    - payment_terms
+    - line_items
+
+# Inference Configuration
+inference:
+  batch_size: 1
+  num_beams: 1  # Beam search width
+  max_new_tokens: 768
+  temperature: 0.0  # 0.0 for greedy decoding
+
+# Miscellaneous
+seed: 42
+resume_from_checkpoint: null  # Path to checkpoint to resume from

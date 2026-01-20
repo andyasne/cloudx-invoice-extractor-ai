@@ -1,0 +1,100 @@
+# Cloudx Invoice AI - Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  # Training service
+  training:
+    build:
+      context: .
+      target: training
+    container_name: cloudx-invoice-training
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python train.py --config /app/configs/train_config.yaml
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # GPU Training service
+  training-gpu:
+    build:
+      context: .
+      target: gpu-training
+    container_name: cloudx-invoice-training-gpu
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+    command: python train.py --config /app/configs/train_config.yaml --gpus 1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - gpu
+
+  # API service
+  api:
+    build:
+      context: .
+      target: api
+    container_name: cloudx-invoice-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CONFIG_PATH=/app/configs/train_config.yaml
+      - CHECKPOINT_PATH=/app/models/checkpoints/best_model.ckpt
+    command: python run_api.py --checkpoint /app/models/checkpoints/best_model.ckpt --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Data preprocessing service
+  preprocessing:
+    build:
+      context: .
+      target: training
+    container_name: cloudx-invoice-preprocessing
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: echo "Run preprocessing scripts manually"
+    profiles:
+      - preprocessing
+
+volumes:
+  data:
+  models:
+  logs:
+
+networks:
+  default:
+    name: cloudx-invoice-network
